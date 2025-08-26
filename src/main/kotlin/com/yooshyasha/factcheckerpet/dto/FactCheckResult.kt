@@ -1,7 +1,7 @@
 package com.yooshyasha.factcheckerpet.dto
 
 data class FactCheckResult(
-    val isReliable: Boolean,
-    val explanation: String,
+    var isReliable: Boolean,
+    var explanation: String,
     val sources: Collection<String>,
 )
