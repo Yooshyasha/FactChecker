@@ -6,10 +6,15 @@ import com.yooshyasha.factcheckerpet.dto.News
 import kotlinx.serialization.KSerializer
 
 object FactCheckingTools {
-    class CheckOriginTool(
-        override val argsSerializer: KSerializer<News>,
+    class CheckOriginTool : SimpleTool<News>() {
+        override val argsSerializer: KSerializer<News>
+            get() = News.serializer()
         override val descriptor: ToolDescriptor
-    ) : SimpleTool<News>() {
+            get() = ToolDescriptor(
+                name = "Check news origin",
+                description = "Tool for checking news origin. Use the whitelist"
+            )
+
         override suspend fun doExecute(args: News): String {
             val trustedSources = listOf("BBC", "Reuters", "The Guardian")
             return (args.origin in trustedSources).toString()
