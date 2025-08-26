@@ -2,7 +2,7 @@ package com.yooshyasha.factcheckerpet.agent.common
 
 import ai.koog.agents.core.agent.AIAgent
 
-interface AgentProvider {
+interface AgentProvider<T> {
     val title: String
 
     val description: String
@@ -11,5 +11,5 @@ interface AgentProvider {
         onToolCallEvent: suspend (String) -> Unit,
         onErrorEvent: suspend (String) -> Unit,
         onAssistantMessage: suspend (String) -> String
-    ): AIAgent<String, String>
+    ): AIAgent<String, T>
 }

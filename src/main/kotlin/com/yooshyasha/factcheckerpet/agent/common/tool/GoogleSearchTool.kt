@@ -15,7 +15,7 @@ class GoogleSearchTool(
 
     override val descriptor: ToolDescriptor
         get() = ToolDescriptor(
-            name = "Google search tool",
+            name = "googleSearchTool",
             description = "Tool for search text with google",
         )
 

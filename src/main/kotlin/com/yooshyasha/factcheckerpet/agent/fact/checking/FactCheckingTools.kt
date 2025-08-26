@@ -11,7 +11,7 @@ object FactCheckingTools {
             get() = News.serializer()
         override val descriptor: ToolDescriptor
             get() = ToolDescriptor(
-                name = "Check news origin",
+                name = "checkOriginTool",
                 description = "Tool for checking news origin. Use the whitelist"
             )
 
