@@ -1,14 +1,21 @@
 package com.yooshyasha.factcheckerpet.agent.fact.checking
 
 import ai.koog.agents.core.agent.AIAgent
+import ai.koog.agents.core.dsl.builder.forwardTo
 import ai.koog.agents.core.dsl.builder.strategy
-import ai.koog.agents.core.dsl.extension.nodeExecuteMultipleTools
-import ai.koog.agents.core.dsl.extension.nodeExecuteTool
+import ai.koog.agents.core.dsl.extension.*
+import ai.koog.agents.core.environment.ReceivedToolResult
 import ai.koog.agents.core.tools.ToolRegistry
 import ai.koog.prompt.executor.llms.all.simpleOpenAIExecutor
 import com.yooshyasha.factcheckerpet.agent.common.AgentProvider
+import com.yooshyasha.factcheckerpet.agent.common.tool.GoogleSearchTool
+import com.yooshyasha.factcheckerpet.dto.FactCheckResult
+import org.springframework.stereotype.Component
 
-class FactCheckingAgent : AgentProvider {
+@Component
+class FactCheckingAgent(
+    private val googleSearchTool: GoogleSearchTool,
+) : AgentProvider {
     override val title: String
         get() = "Fact checking agent"
     override val description: String
@@ -23,13 +30,36 @@ class FactCheckingAgent : AgentProvider {
 
         val toolRegistry = ToolRegistry {
             tool(FactCheckingTools.CheckOriginTool())
-            // TODO("Google search tool")
+            tool(googleSearchTool)
         }
 
-        val strategy = strategy<String, String>(title) {
-            val executeTool = nodeExecuteMultipleTools()
+        val strategy = strategy<String, FactCheckResult>(title) {
+            val nodeInitialRequest by nodeLLMRequest()
+            val nodeExecuteSearch by nodeExecuteTool()
+            val nodeCompressHistory by nodeLLMCompressHistory<ReceivedToolResult>()
+            val nodeSendSearchResult by nodeLLMSendToolResult()
+            val nodeExecuteCheckOrigin by nodeExecuteTool()
+            val nodeSendCheckOriginResult by nodeLLMSendToolResult()
 
-            // TODO
+            val nodeFinish by node<ReceivedToolResult, FactCheckResult> {
+                FactCheckResult(
+                    false,
+                    "Thinking...",
+                    listOf(),
+                )
+            }
+
+            edge(nodeStart forwardTo nodeInitialRequest)
+
+            edge(nodeInitialRequest forwardTo nodeExecuteSearch onToolCall { true })
+
+            edge(nodeExecuteSearch forwardTo nodeCompressHistory)
+
+            edge(nodeCompressHistory forwardTo nodeSendSearchResult)
+
+            edge(nodeSendSearchResult forwardTo nodeExecuteCheckOrigin onToolCall { true })
+
+            edge(nodeExecuteCheckOrigin forwardTo nodeSendCheckOriginResult)
         }
         TODO()
     }
