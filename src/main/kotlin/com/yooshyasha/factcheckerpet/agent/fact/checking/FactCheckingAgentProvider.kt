@@ -18,7 +18,7 @@ import org.springframework.beans.factory.annotation.Value
 import org.springframework.stereotype.Component
 
 @Component
-class FactCheckingAgent(
+class FactCheckingAgentProvider(
     private val googleSearchTool: GoogleSearchTool,
 ) : AgentProvider<FactCheckResult> {
     @Value("\${agents.api.key}")
