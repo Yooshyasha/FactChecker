@@ -3,7 +3,7 @@ package com.yooshyasha.factcheckerpet.agent.common.tool
 import ai.koog.agents.core.tools.SimpleTool
 import ai.koog.agents.core.tools.ToolDescriptor
 import com.yooshyasha.factcheckerpet.dto.GoogleSearchDTO
-import com.yooshyasha.factcheckerpet.services.GoogleApiService
+import com.yooshyasha.factcheckerpet.service.GoogleApiService
 import kotlinx.serialization.KSerializer
 import org.springframework.stereotype.Component
 
