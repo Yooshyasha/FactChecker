@@ -14,12 +14,16 @@ import ai.koog.prompt.executor.llms.all.simpleOpenAIExecutor
 import com.yooshyasha.factcheckerpet.agent.common.AgentProvider
 import com.yooshyasha.factcheckerpet.agent.common.tool.GoogleSearchTool
 import com.yooshyasha.factcheckerpet.dto.FactCheckResult
+import org.springframework.beans.factory.annotation.Value
 import org.springframework.stereotype.Component
 
 @Component
 class FactCheckingAgent(
     private val googleSearchTool: GoogleSearchTool,
 ) : AgentProvider<FactCheckResult> {
+    @Value("\${agents.api.key}")
+    private lateinit var agentsApiKey: String
+
     override val title: String
         get() = "factCheckingAgent"
     override val description: String
@@ -30,7 +34,7 @@ class FactCheckingAgent(
         onErrorEvent: suspend (String) -> Unit,
         onAssistantMessage: suspend (String) -> String
     ): AIAgent<String, FactCheckResult> {
-        val executor = simpleOpenAIExecutor("")  // TODO
+        val executor = simpleOpenAIExecutor(agentsApiKey)
 
         val toolRegistry = ToolRegistry {
             tool(FactCheckingTools.CheckOriginTool())
