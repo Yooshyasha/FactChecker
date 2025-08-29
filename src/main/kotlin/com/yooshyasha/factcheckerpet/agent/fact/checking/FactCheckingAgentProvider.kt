@@ -5,17 +5,18 @@ import ai.koog.agents.core.agent.config.AIAgentConfig
 import ai.koog.agents.core.dsl.builder.forwardTo
 import ai.koog.agents.core.dsl.builder.strategy
 import ai.koog.agents.core.dsl.extension.*
-import ai.koog.agents.core.environment.ReceivedToolResult
 import ai.koog.agents.core.tools.ToolRegistry
 import ai.koog.agents.features.eventHandler.feature.handleEvents
 import ai.koog.prompt.dsl.prompt
 import ai.koog.prompt.executor.clients.openai.OpenAIModels
 import ai.koog.prompt.executor.llms.all.simpleOpenAIExecutor
+import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import com.yooshyasha.factcheckerpet.agent.common.AgentProvider
 import com.yooshyasha.factcheckerpet.agent.common.tool.GoogleSearchTool
 import com.yooshyasha.factcheckerpet.dto.FactCheckResult
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.stereotype.Component
+import java.io.IOException
 
 @Component
 class FactCheckingAgentProvider(
@@ -28,6 +29,8 @@ class FactCheckingAgentProvider(
         get() = "factCheckingAgent"
     override val description: String
         get() = "I'm a fact checking agent"
+
+    private final val objectMapper = jacksonObjectMapper()
 
     override suspend fun provideAgent(
         onToolCallEvent: suspend (String) -> Unit,
@@ -44,17 +47,16 @@ class FactCheckingAgentProvider(
         val strategy = strategy<String, FactCheckResult>(title) {
             val nodeInitialRequest by nodeLLMRequest()
             val nodeExecuteSearch by nodeExecuteTool()
-            val nodeCompressHistory by nodeLLMCompressHistory<ReceivedToolResult>()
             val nodeSendSearchResult by nodeLLMSendToolResult()
             val nodeExecuteCheckOrigin by nodeExecuteTool()
             val nodeSendCheckOriginResult by nodeLLMSendToolResult()
 
             val nodeFinalAnalytic by node<String, FactCheckResult> {
-                FactCheckResult(
-                    false,
-                    "Thinking...",
-                    listOf(),
-                )
+                try {
+                    objectMapper.reader().readValue(it, FactCheckResult::class.java)
+                } catch (e: IOException) {
+                    FactCheckResult(false, it, listOf())
+                }
             }
 
             edge(nodeStart forwardTo nodeInitialRequest)
@@ -63,9 +65,7 @@ class FactCheckingAgentProvider(
                 it.tool == "googleSearchTool"
             })
 
-            edge(nodeExecuteSearch forwardTo nodeCompressHistory)
-
-            edge(nodeCompressHistory forwardTo nodeSendSearchResult)
+            edge(nodeExecuteSearch forwardTo nodeSendSearchResult)
 
             edge(nodeSendSearchResult forwardTo nodeExecuteCheckOrigin onToolCall {
                 it.tool == "checkOriginTool"
@@ -79,21 +79,37 @@ class FactCheckingAgentProvider(
                         !message.content.contains("проверить")
             })
 
-            edge(nodeSendSearchResult forwardTo nodeExecuteCheckOrigin onToolCall {
+            edge(nodeSendSearchResult forwardTo nodeExecuteSearch onToolCall {
+                it.tool == "googleSearchTool"
+            })
+
+            edge(nodeSendSearchResult forwardTo nodeFinalAnalytic onAssistantMessage { message ->
+                val json = try {
+                    objectMapper.readTree(message.content)
+                } catch (e: Exception) {
+                    null
+                }
+                json != null && json.hasNonNull("isTrue") && json.hasNonNull("comment")
+            })
+
+            edge(nodeSendSearchResult forwardTo nodeExecuteSearch onToolCall {
                 it.tool == "googleSearchTool"
             })
 
             edge(nodeFinalAnalytic forwardTo nodeFinish)
+
+            edge(nodeInitialRequest forwardTo nodeFinalAnalytic onAssistantMessage { true })
         }
 
         val agentConfig = AIAgentConfig(
             prompt = prompt("fact-checker") {
                 system(
-                    "Ты агент для проверки фактов новостей. Используй googleSearchTool для поиска информации " +
-                            "и checkOriginTool для проверки источников. Ты можешь игнорировать checkOriginTool, если " +
+                    "Ты агент для проверки фактов новостей. Используй googleSearchTool (в аргументах ты должен передать query) для поиска информации " +
+                            "и checkOriginTool (в аргументах ты должен передать origin) для проверки источников. Ты можешь игнорировать checkOriginTool, если " +
                             "источники на 100% независимые. Повторяй запросы при необходимости. На основе найденной " +
-                            "информации формируй FactCheckResult с полями: isTrue (правда ли утверждение), comment " +
-                            "(объяснение результата), sources (список источников)."
+                            "информации формируй json с полями: isTrue (правда ли утверждение), comment " +
+                            "(объяснение результата), sources (список источников)." +
+                            "Если ты готов вернуть результат, ты должен прислать валидный json (о котором говорилось ранее)"
                 )
             },
             model = OpenAIModels.Chat.GPT4o,

@@ -14,7 +14,10 @@ class FactCheckingService(
     suspend fun factCheckNews(news: String): FactCheckResult {
         val agent = factCheckingAgentProvider.provideAgent({}, {
             logger.error("Агент вернул ошибку: $it")
-        }, { "" })
+        }, {
+            logger.debug("Агент написал: $it")
+            ""
+        })
 
         return agent.run(news)
     }

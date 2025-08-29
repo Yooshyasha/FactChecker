@@ -5,6 +5,7 @@ import com.google.api.client.json.gson.GsonFactory
 import com.google.api.services.customsearch.v1.CustomSearchAPI
 import com.google.api.services.customsearch.v1.CustomSearchAPIRequestInitializer
 import com.google.api.services.customsearch.v1.model.Result
+import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.stereotype.Service
 
@@ -15,6 +16,8 @@ class GoogleApiService {
 
     @Value("\${google.custom.search.cx}")
     private lateinit var customSearchCx: String
+
+    private final val logger = LoggerFactory.getLogger(this::class.java)
 
     fun search(query: String): String {
         return try {
@@ -29,11 +32,12 @@ class GoogleApiService {
             val listRequest = customsearch.cse().list()
             listRequest.q = query
             listRequest.cx = customSearchCx
-            listRequest.num = 50
+            listRequest.num = 10
 
             val searchResult = listRequest.execute()
             formatResults(searchResult.items)
         } catch (e: Exception) {
+            logger.error("Ошибка поиска ${e.message}: ${e.stackTrace}")
             "Ошибка поиска: ${e.message}"
         }
     }
