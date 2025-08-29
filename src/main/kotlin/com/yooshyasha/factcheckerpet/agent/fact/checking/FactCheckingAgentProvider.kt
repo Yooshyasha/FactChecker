@@ -89,7 +89,7 @@ class FactCheckingAgentProvider(
                 } catch (e: Exception) {
                     null
                 }
-                json != null && json.hasNonNull("isTrue") && json.hasNonNull("comment")
+                json != null && json.hasNonNull("isReliable") && json.hasNonNull("explanation")
             })
 
             edge(nodeSendSearchResult forwardTo nodeExecuteSearch onToolCall {
@@ -104,12 +104,18 @@ class FactCheckingAgentProvider(
         val agentConfig = AIAgentConfig(
             prompt = prompt("fact-checker") {
                 system(
-                    "Ты агент для проверки фактов новостей. Используй googleSearchTool (в аргументах ты должен передать query) для поиска информации " +
-                            "и checkOriginTool (в аргументах ты должен передать origin) для проверки источников. Ты можешь игнорировать checkOriginTool, если " +
-                            "источники на 100% независимые. Повторяй запросы при необходимости. На основе найденной " +
+                    "Ты агент для проверки фактов новостей. Используй googleSearchTool (в аргументах ты должен " +
+                            "передать query) для поиска информации " +
+                            "и checkOriginTool (в аргументах ты должен передать origin) для проверки источников. " +
+                            "Ты можешь игнорировать checkOriginTool, если " +
+                            "источники на 100% независимые; Ты можешь, если у независимых найти не удалось, использовать " +
+                            "новости от иных, но при этом помечая факт чекинг провальным, со ссылкой на найденные " +
+                            "результаты от зависимых СМИ. Повторяй запросы при необходимости. На основе найденной " +
                             "информации формируй json с полями: isReliable (правда ли утверждение), explanation " +
-                            "(объяснение результата), sources (Collection<String>) (список источников)." +
-                            "Если ты готов вернуть результат, ты должен прислать валидный json без лишних символов (о котором говорилось ранее)"
+                            "(объяснение результата и, если пользователю может быть интересно, причины этого), sources " +
+                            "(Collection<String>) (список источников)." +
+                            "Если ты готов вернуть результат, ты должен прислать валидный json без лишних символов " +
+                            "(о котором говорилось ранее)"
                 )
             },
             model = OpenAIModels.Chat.GPT4o,
