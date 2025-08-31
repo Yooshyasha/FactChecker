@@ -13,6 +13,21 @@
 
 ---
 
+## 🔑 Настройки окружения
+
+Для работы ИИ агента и Google поиска создайте файл `.env` в корне проекта со следующими переменными:
+
+```dotenv
+# Ключ для Koog / ИИ агента
+AGENTS_API_KEY=sk-proj-xxx-xxx
+
+# Настройки Google Custom Search
+GOOGLE_CX=80e7exxx1aff454e
+GOOGLE_API_KEY=AIzaSyxxxxxxxmz1F0
+```
+
+---
+
 ## 🚀 Запуск
 
 1. Сборка проекта:
@@ -27,7 +42,7 @@
     docker compose up --build -d
     ```
 
-    API будет доступно по адресу: `http://127.0.0.1:80`
+   API будет доступно по адресу: `http://127.0.0.1:80`
 
 ---
 
