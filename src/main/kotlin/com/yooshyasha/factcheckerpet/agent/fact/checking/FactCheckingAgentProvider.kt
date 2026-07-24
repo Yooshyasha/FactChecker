@@ -22,6 +22,7 @@ class FactCheckingAgentProvider(
     private val googleSearchTool: GoogleSearchTool,
     private val executor: SingleLLMPromptExecutor,
     private val model: LLModel,
+    private val searchMcpToolRegistry: ToolRegistry,
 ) : AgentProvider<FactCheckResult> {
     override val title: String
         get() = "factCheckingAgent"
@@ -37,8 +38,7 @@ class FactCheckingAgentProvider(
     ): AIAgent<String, FactCheckResult> {
         val toolRegistry = ToolRegistry {
             tool(FactCheckingTools.CheckOriginTool())
-            tool(googleSearchTool)
-        }
+        } + searchMcpToolRegistry
 
         val strategy = strategy<String, FactCheckResult>(title) {
             val nodeInitialRequest by nodeLLMRequest()
