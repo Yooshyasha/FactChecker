@@ -11,3 +11,29 @@ services:
       - backend
     env_file:
       - .env
+
+  searxng:
+    image: searxng/searxng:latest
+    networks:
+      - backend
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./searxng:/etc/searxng:rw
+    environment:
+      - SEARXNG_BASE_URL=http://localhost:8080/
+    restart: unless-stopped
+
+  web-search-mcp:
+    build:
+      context: ./web-search-mcp
+    networks:
+      - backend
+    environment:
+      - PORT=8000
+      - SEARXNG_URL=http://searxng:8080
+      - LOG_LEVEL=INFO
+    shm_size: '2gb'
+    depends_on:
+      - searxng
+    restart: unless-stopped

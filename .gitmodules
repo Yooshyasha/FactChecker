@@ -1,0 +1,3 @@
+[submodule "web-search-mcp"]
+	path = web-search-mcp
+	url = https://github.com/zydins/web-search-mcp-server.git
