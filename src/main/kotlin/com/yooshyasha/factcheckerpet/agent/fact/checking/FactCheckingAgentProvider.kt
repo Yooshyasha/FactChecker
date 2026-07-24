@@ -8,23 +8,21 @@ import ai.koog.agents.core.dsl.extension.*
 import ai.koog.agents.core.tools.ToolRegistry
 import ai.koog.agents.features.eventHandler.feature.handleEvents
 import ai.koog.prompt.dsl.prompt
-import ai.koog.prompt.executor.clients.openai.OpenAIModels
-import ai.koog.prompt.executor.llms.all.simpleOpenAIExecutor
+import ai.koog.prompt.executor.llms.SingleLLMPromptExecutor
+import ai.koog.prompt.llm.LLModel
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import com.yooshyasha.factcheckerpet.agent.common.AgentProvider
 import com.yooshyasha.factcheckerpet.agent.common.tool.GoogleSearchTool
 import com.yooshyasha.factcheckerpet.dto.FactCheckResult
-import org.springframework.beans.factory.annotation.Value
 import org.springframework.stereotype.Component
 import java.io.IOException
 
 @Component
 class FactCheckingAgentProvider(
     private val googleSearchTool: GoogleSearchTool,
+    private val executor: SingleLLMPromptExecutor,
+    private val model: LLModel,
 ) : AgentProvider<FactCheckResult> {
-    @Value("\${agents.api.key}")
-    private lateinit var agentsApiKey: String
-
     override val title: String
         get() = "factCheckingAgent"
     override val description: String
@@ -37,8 +35,6 @@ class FactCheckingAgentProvider(
         onErrorEvent: suspend (String) -> Unit,
         onAssistantMessage: suspend (String) -> String
     ): AIAgent<String, FactCheckResult> {
-        val executor = simpleOpenAIExecutor(agentsApiKey)
-
         val toolRegistry = ToolRegistry {
             tool(FactCheckingTools.CheckOriginTool())
             tool(googleSearchTool)
@@ -118,8 +114,8 @@ class FactCheckingAgentProvider(
                             "(о котором говорилось ранее)."
                 )
             },
-            model = OpenAIModels.Chat.GPT4o,
-            maxAgentIterations = 50,
+            model = model,
+            maxAgentIterations = 12,
         )
 
         return AIAgent(
