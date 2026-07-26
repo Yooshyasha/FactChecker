@@ -12,14 +12,12 @@ import ai.koog.prompt.executor.llms.SingleLLMPromptExecutor
 import ai.koog.prompt.llm.LLModel
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import com.yooshyasha.factcheckerpet.agent.common.AgentProvider
-import com.yooshyasha.factcheckerpet.agent.common.tool.GoogleSearchTool
 import com.yooshyasha.factcheckerpet.dto.FactCheckResult
 import org.springframework.stereotype.Component
 import java.io.IOException
 
 @Component
 class FactCheckingAgentProvider(
-    private val googleSearchTool: GoogleSearchTool,
     private val executor: SingleLLMPromptExecutor,
     private val model: LLModel,
     private val searchMcpToolRegistry: ToolRegistry,
@@ -58,7 +56,7 @@ class FactCheckingAgentProvider(
             edge(nodeStart forwardTo nodeInitialRequest)
 
             edge(nodeInitialRequest forwardTo nodeExecuteSearch onToolCall {
-                it.tool == "googleSearchTool"
+                it.tool == "web_search"
             })
 
             edge(nodeExecuteSearch forwardTo nodeSendSearchResult)
@@ -76,7 +74,7 @@ class FactCheckingAgentProvider(
             })
 
             edge(nodeSendSearchResult forwardTo nodeExecuteSearch onToolCall {
-                it.tool == "googleSearchTool"
+                it.tool == "web_search"
             })
 
             edge(nodeSendSearchResult forwardTo nodeFinalAnalytic onAssistantMessage { message ->
@@ -88,10 +86,6 @@ class FactCheckingAgentProvider(
                 json != null && json.hasNonNull("isReliable") && json.hasNonNull("explanation")
             })
 
-            edge(nodeSendSearchResult forwardTo nodeExecuteSearch onToolCall {
-                it.tool == "googleSearchTool"
-            })
-
             edge(nodeFinalAnalytic forwardTo nodeFinish)
 
             edge(nodeInitialRequest forwardTo nodeFinalAnalytic onAssistantMessage { true })
@@ -100,7 +94,7 @@ class FactCheckingAgentProvider(
         val agentConfig = AIAgentConfig(
             prompt = prompt("fact-checker") {
                 system(
-                    "Ты агент для проверки фактов новостей. Используй googleSearchTool (в аргументах ты должен " +
+                    "Ты агент для проверки фактов новостей. Используй web_search (в аргументах ты должен " +
                             "передать query) для поиска информации " +
                             "и checkOriginTool (в аргументах ты должен передать origin) для проверки источников. " +
                             "Ты можешь игнорировать checkOriginTool, если " +

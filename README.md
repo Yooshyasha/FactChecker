@@ -15,16 +15,14 @@
 
 ## 🔑 Настройки окружения
 
-Для работы ИИ агента и Google поиска создайте файл `.env` в корне проекта со следующими переменными:
+Для работы ИИ агента создайте файл `.env` в корне проекта со следующими переменными:
 
 ```dotenv
 # Ключ для Koog / ИИ агента
 AGENTS_API_KEY=sk-proj-xxx-xxx
-
-# Настройки Google Custom Search
-GOOGLE_CX=80e7exxx1aff454e
-GOOGLE_API_KEY=AIzaSyxxxxxxxmz1F0
 ```
+
+Веб-поиск выполняется через MCP-сервис `web-search-mcp` (SearXNG), поднимаемый в Docker Compose, — отдельных ключей не требует.
 
 ---
 
@@ -90,20 +88,17 @@ src/main/kotlin/com/yooshyasha/factcheckerpet/
  ├─ FactCheckerPetApplication.kt      # main
  ├─ agent/
  │   ├─ common/                       # провайдеры и общие инструменты
- │   │   ├─ AgentProvider.kt
- │   │   └─ tool/GoogleSearchTool.kt
+ │   │   └─ AgentProvider.kt
  │   └─ fact/checking/                # ИИ агент для факт-чекинга
  │       ├─ FactCheckingAgentProvider.kt
  │       └─ FactCheckingTools.kt
  ├─ controller/CheckController.kt     # REST контроллер
  ├─ dto/                              # модели данных
  │   ├─ FactCheckResult.kt
- │   ├─ GoogleSearchDTO.kt
  │   ├─ News.kt
  │   └─ RequestFactCheck.kt
  └─ service/                          # сервисы
-     ├─ FactCheckingService.kt
-     └─ GoogleApiService.kt
+     └─ FactCheckingService.kt
 
 ```
 

@@ -39,12 +39,6 @@ dependencies {
     // Koog
     implementation("ai.koog:koog-agents:0.3.0")
 
-    // Google API
-    implementation("com.google.apis:google-api-services-customsearch:v1-rev20240821-2.0.0")
-    implementation("com.google.api-client:google-api-client:2.2.0")
-    implementation("com.google.oauth-client:google-oauth-client-jetty:1.34.1")
-    implementation("com.google.http-client:google-http-client-jackson2:1.43.3")
-
     // https://mvnrepository.com/artifact/org.jetbrains.kotlinx/kotlinx-coroutines-reactor
     runtimeOnly("org.jetbrains.kotlinx:kotlinx-coroutines-reactor:1.10.2")
 
