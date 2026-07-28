@@ -40,53 +40,24 @@ class FactCheckingAgentProvider(
 
         val strategy = strategy<String, FactCheckResult>(title) {
             val nodeInitialRequest by nodeLLMRequest()
-            val nodeExecuteSearch by nodeExecuteTool()
-            val nodeSendSearchResult by nodeLLMSendToolResult()
-            val nodeExecuteCheckOrigin by nodeExecuteTool()
-            val nodeSendCheckOriginResult by nodeLLMSendToolResult()
+            val nodeRunTool by nodeExecuteTool()
+            val nodeSendToolResult by nodeLLMSendToolResult()
 
-            val nodeFinalAnalytic by node<String, FactCheckResult> {
-                try {
-                    objectMapper.reader().readValue(it, FactCheckResult::class.java)
-                } catch (e: IOException) {
-                    FactCheckResult(false, it, listOf())
-                }
+            val nodeFinalAnalytic by node<String, FactCheckResult> { content ->
+                parseResult(content) ?: FactCheckResult(false, content, listOf())
             }
 
             edge(nodeStart forwardTo nodeInitialRequest)
 
-            edge(nodeInitialRequest forwardTo nodeExecuteSearch onToolCall {
-                it.tool == "web_search"
-            })
+            edge(nodeInitialRequest forwardTo nodeRunTool onToolCall { true })
+            edge(nodeInitialRequest forwardTo nodeFinalAnalytic onAssistantMessage { true })
 
-            edge(nodeExecuteSearch forwardTo nodeSendSearchResult)
+            edge(nodeRunTool forwardTo nodeSendToolResult)
 
-            edge(nodeSendSearchResult forwardTo nodeExecuteCheckOrigin onToolCall {
-                it.tool == "checkOriginTool"
-            })
-
-            edge(nodeExecuteCheckOrigin forwardTo nodeSendCheckOriginResult)
-
-            edge(nodeSendCheckOriginResult forwardTo nodeFinalAnalytic onAssistantMessage { message ->
-                !message.content.contains("нужно найти") &&
-                        !message.content.contains("поиск") &&
-                        !message.content.contains("проверить")
-            })
-
-            edge(nodeSendSearchResult forwardTo nodeExecuteSearch onToolCall { true })
-
-            edge(nodeSendSearchResult forwardTo nodeFinalAnalytic onAssistantMessage { message ->
-                val json = try {
-                    objectMapper.readTree(message.content)
-                } catch (e: Exception) {
-                    null
-                }
-                json != null && json.hasNonNull("isReliable") && json.hasNonNull("explanation")
-            })
+            edge(nodeSendToolResult forwardTo nodeRunTool onToolCall { true })
+            edge(nodeSendToolResult forwardTo nodeFinalAnalytic onAssistantMessage { true })
 
             edge(nodeFinalAnalytic forwardTo nodeFinish)
-
-            edge(nodeInitialRequest forwardTo nodeFinalAnalytic onAssistantMessage { true })
         }
 
         val agentConfig = AIAgentConfig(
@@ -120,5 +91,26 @@ class FactCheckingAgentProvider(
                 onAgentRunError { onErrorEvent("${it.throwable.message}") }
             }
         }
+    }
+
+    private fun parseResult(content: String): FactCheckResult? {
+        val json = extractJson(content) ?: return null
+        return try {
+            objectMapper.readValue(json, FactCheckResult::class.java)
+        } catch (_: IOException) {
+            null
+        }
+    }
+
+    private fun extractJson(content: String): String? {
+        FENCED_JSON.find(content)?.let { return it.groupValues[1] }
+        val start = content.indexOf('{')
+        val end = content.lastIndexOf('}')
+        return if (start != -1 && end > start) content.substring(start, end + 1) else null
+    }
+
+    private companion object {
+        private val FENCED_JSON =
+            Regex("```(?:json)?\\s*(\\{.*})\\s*```", RegexOption.DOT_MATCHES_ALL)
     }
 }
