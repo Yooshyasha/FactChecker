@@ -25,6 +25,7 @@ services:
   web-search-mcp:
     build:
       context: ./web-search-mcp
+      dockerfile: ../docker/web-search-mcp.Dockerfile
     networks:
       - backend
     environment:
