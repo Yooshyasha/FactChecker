@@ -78,7 +78,7 @@ class FactCheckingAgentProvider(
                 )
             },
             model = model,
-            maxAgentIterations = 12,
+            maxAgentIterations = 16,
         )
 
         return AIAgent(
