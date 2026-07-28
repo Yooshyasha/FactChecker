@@ -73,9 +73,7 @@ class FactCheckingAgentProvider(
                         !message.content.contains("проверить")
             })
 
-            edge(nodeSendSearchResult forwardTo nodeExecuteSearch onToolCall {
-                it.tool == "web_search"
-            })
+            edge(nodeSendSearchResult forwardTo nodeExecuteSearch onToolCall { true })
 
             edge(nodeSendSearchResult forwardTo nodeFinalAnalytic onAssistantMessage { message ->
                 val json = try {
