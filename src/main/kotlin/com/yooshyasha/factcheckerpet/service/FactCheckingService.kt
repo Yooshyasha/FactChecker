@@ -4,6 +4,8 @@ import com.yooshyasha.factcheckerpet.agent.fact.checking.FactCheckingAgentProvid
 import com.yooshyasha.factcheckerpet.dto.FactCheckResult
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
+import java.time.LocalDateTime
+import java.time.format.DateTimeFormatter
 
 @Service
 class FactCheckingService(
@@ -11,7 +13,7 @@ class FactCheckingService(
 ) {
     private final val logger = LoggerFactory.getLogger(this::class.java)
 
-    suspend fun factCheckNews(news: String): FactCheckResult {
+    suspend fun factCheckNews(news: String, context: String): FactCheckResult {
         val agent = factCheckingAgentProvider.provideAgent({}, {
             logger.error("Агент вернул ошибку: $it")
         }, {
@@ -19,6 +21,9 @@ class FactCheckingService(
             ""
         })
 
-        return agent.run(news)
+        val now = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm"))
+        val input = "$news\nCONTEXT: $context; \nCURRENT_TIME: $now"
+
+        return agent.run(input)
     }
 }

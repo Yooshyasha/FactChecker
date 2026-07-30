@@ -16,6 +16,6 @@ class CheckController(
 ) {
     @GetMapping("/check")
     suspend fun factCheck(@ModelAttribute factData: RequestFactCheck): ResponseEntity<FactCheckResult> {
-        return ResponseEntity.ok(factCheckingService.factCheckNews(factData.news))
+        return ResponseEntity.ok(factCheckingService.factCheckNews(factData.news, factData.context))
     }
 }
