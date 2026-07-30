@@ -5,6 +5,8 @@ import ai.koog.agents.core.agent.config.AIAgentConfig
 import ai.koog.agents.core.dsl.builder.forwardTo
 import ai.koog.agents.core.dsl.builder.strategy
 import ai.koog.agents.core.dsl.extension.*
+import ai.koog.agents.core.environment.ReceivedToolResult
+import ai.koog.agents.core.environment.result
 import ai.koog.agents.core.tools.ToolRegistry
 import ai.koog.agents.features.eventHandler.feature.handleEvents
 import ai.koog.prompt.dsl.prompt
@@ -14,8 +16,10 @@ import ai.koog.prompt.message.Message
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import com.yooshyasha.factcheckerpet.agent.common.AgentProvider
 import com.yooshyasha.factcheckerpet.dto.FactCheckResult
+import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
 import java.io.IOException
+import java.util.concurrent.atomic.AtomicInteger
 
 @Component
 class FactCheckingAgentProvider(
@@ -30,6 +34,8 @@ class FactCheckingAgentProvider(
 
     private final val objectMapper = jacksonObjectMapper()
 
+    private final val logger = LoggerFactory.getLogger(this::class.java)
+
     override suspend fun provideAgent(
         onToolCallEvent: suspend (String) -> Unit,
         onErrorEvent: suspend (String) -> Unit,
@@ -38,6 +44,9 @@ class FactCheckingAgentProvider(
         val toolRegistry = ToolRegistry {
             tool(FactCheckingTools.CheckOriginTool())
         } + searchMcpToolRegistry
+
+        val iterations = AtomicInteger()
+        val toolCalls = AtomicInteger()
 
         val strategy = strategy<String, FactCheckResult>(title) {
             val nodeInitialRequest by nodeLLMRequest()
@@ -48,13 +57,13 @@ class FactCheckingAgentProvider(
                 parseResult(content) ?: FactCheckResult(false, content, listOf())
             }
 
-            val nodeForceGenerateResult by node<Message.Assistant, Message.Response> { message ->
+            val nodeForceGenerateResult by node<ReceivedToolResult, Message.Response> { result ->
                 llm.writeSession {
                     updatePrompt {
-                        assistant(message.component1())
+                        tool { result(result) }
                         system(
-                            "Ты достиг лимита поиска информации; ты обязан прямо сейчас сформировать " +
-                                    "результат"
+                            "Ты достиг лимита обращений к инструментам ($MAX_TOOL_CALLS); " +
+                                    "сформируй итоговый json прямо сейчас по уже собранным данным."
                         )
                     }
 
@@ -67,10 +76,15 @@ class FactCheckingAgentProvider(
             edge(nodeInitialRequest forwardTo nodeRunTool onToolCall { true })
             edge(nodeInitialRequest forwardTo nodeFinalAnalytic onAssistantMessage { true })
 
-            edge(nodeRunTool forwardTo nodeSendToolResult)
+            edge(nodeRunTool forwardTo nodeSendToolResult onCondition {
+                toolCalls.get() < MAX_TOOL_CALLS
+            })
+            edge(nodeRunTool forwardTo nodeForceGenerateResult)
 
             edge(nodeSendToolResult forwardTo nodeRunTool onToolCall { true })
             edge(nodeSendToolResult forwardTo nodeFinalAnalytic onAssistantMessage { true })
+
+            edge(nodeForceGenerateResult forwardTo nodeFinalAnalytic onAssistantMessage { true })
 
             edge(nodeFinalAnalytic forwardTo nodeFinish)
         }
@@ -90,11 +104,11 @@ class FactCheckingAgentProvider(
                             "(Collection<String>) (список источников)." +
                             "Если ты готов вернуть результат, ты должен прислать валидный json без символов снаружи его " +
                             "(о котором говорилось ранее)." +
-                            "Ты можешь вызвать инструменты максимум 6 раз"
+                            "Ты можешь вызвать инструменты максимум $MAX_TOOL_CALLS раз"
                 )
             },
             model = model,
-            maxAgentIterations = 24,
+            maxAgentIterations = MAX_ITERATIONS,
         )
 
         return AIAgent(
@@ -104,7 +118,32 @@ class FactCheckingAgentProvider(
             toolRegistry = toolRegistry
         ) {
             handleEvents {
-                onAgentRunError { onErrorEvent("${it.throwable.message}") }
+                onBeforeNode { event ->
+                    logger.debug(
+                        "Итерация {}/{}: узел {}",
+                        iterations.incrementAndGet(), MAX_ITERATIONS, event.node.name
+                    )
+                }
+                onToolCall { event ->
+                    logger.debug(
+                        "Вызов инструмента {}/{}: {}",
+                        toolCalls.incrementAndGet(), MAX_TOOL_CALLS, event.tool.name
+                    )
+                    onToolCallEvent(event.tool.name)
+                }
+                onAgentFinished {
+                    logger.info(
+                        "Агент завершён: {}/{} итераций, {}/{} вызовов инструментов",
+                        iterations.get(), MAX_ITERATIONS, toolCalls.get(), MAX_TOOL_CALLS
+                    )
+                }
+                onAgentRunError {
+                    logger.warn(
+                        "Агент упал на итерации {}/{} ({} вызовов инструментов)",
+                        iterations.get(), MAX_ITERATIONS, toolCalls.get()
+                    )
+                    onErrorEvent("${it.throwable.message}")
+                }
             }
         }
     }
@@ -128,5 +167,9 @@ class FactCheckingAgentProvider(
     private companion object {
         private val FENCED_JSON =
             Regex("```(?:json)?\\s*(\\{.*})\\s*```", RegexOption.DOT_MATCHES_ALL)
+
+        private const val MAX_TOOL_CALLS = 6
+
+        private const val MAX_ITERATIONS = 3 + 2 * MAX_TOOL_CALLS
     }
 }
