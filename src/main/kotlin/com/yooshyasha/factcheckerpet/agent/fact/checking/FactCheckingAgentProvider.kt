@@ -10,6 +10,7 @@ import ai.koog.agents.features.eventHandler.feature.handleEvents
 import ai.koog.prompt.dsl.prompt
 import ai.koog.prompt.executor.llms.SingleLLMPromptExecutor
 import ai.koog.prompt.llm.LLModel
+import ai.koog.prompt.message.Message
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import com.yooshyasha.factcheckerpet.agent.common.AgentProvider
 import com.yooshyasha.factcheckerpet.dto.FactCheckResult
@@ -45,6 +46,20 @@ class FactCheckingAgentProvider(
 
             val nodeFinalAnalytic by node<String, FactCheckResult> { content ->
                 parseResult(content) ?: FactCheckResult(false, content, listOf())
+            }
+
+            val nodeForceGenerateResult by node<Message.Assistant, Message.Response> { message ->
+                llm.writeSession {
+                    updatePrompt {
+                        assistant(message.component1())
+                        system(
+                            "Ты достиг лимита поиска информации; ты обязан прямо сейчас сформировать " +
+                                    "результат"
+                        )
+                    }
+
+                    return@writeSession requestLLMWithoutTools()
+                }
             }
 
             edge(nodeStart forwardTo nodeInitialRequest)
